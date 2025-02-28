@@ -1,0 +1,9 @@
+tag_check_results.csv
+tag_check_details.csv
+urls.csv
+test.py
+.DS_Store
+.vscode/
+venv/
+ENV/
+.env
