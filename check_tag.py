@@ -7,6 +7,42 @@ import time
 import pandas as pd
 import concurrent.futures
 import os
+import argparse
+import json
+
+def get_search_text():
+    """検索テキストを取得する関数"""
+    # 1. コマンドライン引数から取得を試みる
+    parser = argparse.ArgumentParser(description='タグチェックツール')
+    parser.add_argument('--search-text', '-s', help='検索するテキスト')
+    args = parser.parse_args()
+    
+    if args.search_text:
+        return args.search_text
+    
+    # 2. 設定ファイルから取得を試みる
+    config_path = 'config.json'
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                if 'search_text' in config:
+                    return config['search_text']
+        except Exception:
+            pass
+    
+    # 3. 対話的な入力
+    while True:
+        search_text = input("検索するテキストを入力してください（例：GTM-MBWPPD2）: ").strip()
+        if search_text:
+            # 設定ファイルに保存
+            try:
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump({'search_text': search_text}, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+            return search_text
+        print("テキストを入力してください。")
 
 def check_tag_presence(url, search_text):
     """単一URLに対するタグ検索処理を実行する関数"""
@@ -139,8 +175,8 @@ def check_tag_presence(url, search_text):
     return result
 
 def main():
-    # 検索するテキストを設定
-    SEARCH_TEXT = "GTM-1234ABCD"  # 任意のテキストに変更（GTMのIDなど）
+    # 検索するテキストを取得
+    SEARCH_TEXT = get_search_text()
     
     # URLリストをCSVから読み込む
     try:
