@@ -10,6 +10,7 @@
 - リダイレクトや404エラーの検出
 - 詳細な結果レポートと概要レポートの出力
 - ヘッドレスモードでのブラウザ実行（画面表示なし）
+- 柔軟な検索テキスト指定方法（コマンドライン引数、設定ファイル、対話的入力）
 
 ## 主な用途
 - GTMやGoogle Analyticsなどのタグ実装状況の確認
@@ -56,6 +57,7 @@ pip install -r requirements.txt
 1. お使いのChromeのバージョンを確認
    - Chromeを開き、メニュー → ヘルプ → Google Chromeについて
 2. [ChromeDriverのダウンロードページ](https://chromedriver.chromium.org/downloads)から対応するバージョンをダウンロード
+  - 最新版ChromeDriverは[Chrome for Testing availability](https://googlechromelabs.github.io/chrome-for-testing/)からダウンロード
 3. ダウンロードしたファイルを設置 例：`C:/chromedriver.exe`（Windowsの場合）
    - Mac/Linuxの場合は適切なパスに配置し、コード内のパスを修正
 
@@ -67,12 +69,38 @@ pip install -r requirements.txt
    https://example.com/page2
    ```
 
-2. スクリプトを実行:
+2. スクリプトを実行（以下のいずれかの方法で）:
    ```bash
+   # コマンドライン引数で検索テキストを指定
+   python check_tag.py --search-text "GTM-XXXXXXX"
+   # または短い形式
+   python check_tag.py -s "GTM-XXXXXXX"
+
+   # 対話的な入力で検索テキストを指定
    python check_tag.py
    ```
 
-3. 結果は`conversion_tag_check_results.csv`に保存され、画面にも表示されます
+3. 結果は`tag_check_results.csv`と`tag_check_details.csv`に保存され、画面にも表示されます
+
+## 検索テキストの指定方法
+1. **コマンドライン引数**
+   - `--search-text`または`-s`オプションで直接指定
+   - 例：`python check_tag.py -s "GTM-XXXXXXX"`
+   - 自動化やバッチ処理に最適
+
+2. **設定ファイル**
+   - `config.json`に検索テキストを保存
+   - 一度入力したテキストは次回以降自動的に読み込まれる
+   - 設定ファイルの例：
+     ```json
+     {
+       "search_text": "GTM-XXXXXXX"
+     }
+     ```
+
+3. **対話的入力**
+   - コマンドライン引数や設定ファイルがない場合、対話的に入力を求める
+   - 入力されたテキストは自動的に設定ファイルに保存される
 
 ## 結果の見方
 - ✅ タグあり: GTMタグが正しく実装されている
