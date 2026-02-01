@@ -9,6 +9,7 @@ import concurrent.futures
 import os
 import argparse
 import json
+import urllib.request
 
 def get_search_text():
     """検索テキストを取得する関数"""
@@ -44,6 +45,37 @@ def get_search_text():
             return search_text
         print("テキストを入力してください。")
 
+def find_line_numbers(text, search_text):
+    """テキスト内で検索文字列が出現する行番号を返す（1始まり）"""
+    line_numbers = []
+    for index, line in enumerate(text.splitlines(), start=1):
+        if search_text in line:
+            line_numbers.append(index)
+    return line_numbers
+
+def find_line_matches(text, search_text, max_matches=5):
+    """検索文字列が含まれる行の行番号と行内容を返す（最大件数あり）"""
+    matches = []
+    for index, line in enumerate(text.splitlines(), start=1):
+        if search_text in line:
+            matches.append((index, line.strip()))
+            if len(matches) >= max_matches:
+                break
+    return matches
+
+def fetch_view_source(url, timeout_seconds=10):
+    """view-source相当のHTMLを取得する（失敗時はNone）"""
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; tag-check/1.0)"}
+        )
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            raw_bytes = response.read()
+        return raw_bytes.decode("utf-8", errors="replace")
+    except Exception:
+        return None
+
 def check_tag_presence(url, search_text):
     """単一URLに対するタグ検索処理を実行する関数"""
     # Chrome オプションの設定
@@ -53,9 +85,22 @@ def check_tag_presence(url, search_text):
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
-    # ChromeDriver のパスを設定
-    driver_path = os.environ.get("CHROMEDRIVER_PATH", "C:/chromedriver.exe")
-    service = Service(driver_path)
+    # ChromeDriver のパスを設定（環境変数 → 既定パス → PATH の順）
+    env_driver_path = os.environ.get("CHROMEDRIVER_PATH")
+    default_driver_paths = [
+        "C:/chromedriver/chromedriver.exe",
+        "C:/chromedriver-win64/chromedriver.exe",
+    ]
+    driver_path = None
+    if env_driver_path:
+        driver_path = env_driver_path
+    else:
+        for candidate in default_driver_paths:
+            if os.path.isfile(candidate):
+                driver_path = candidate
+                break
+
+    service = Service(driver_path) if driver_path else Service()
     
     result = {
         "url": url,
@@ -63,6 +108,8 @@ def check_tag_presence(url, search_text):
         "in_head": False,
         "in_body": False,
         "in_html": False,
+        "line_numbers": [],
+        "line_numbers_view_source": [],
         "details": []
     }
     
@@ -105,6 +152,12 @@ def check_tag_presence(url, search_text):
                 if search_text in head_html:
                     result["in_head"] = True
                     result["details"].append("✅ HEADタグ内に検索テキストが存在します")
+                head_matches = find_line_matches(head_html, search_text)
+                if head_matches:
+                    for line_no, line_text in head_matches:
+                        result["details"].append(f"  - HEAD一致行 {line_no}: {line_text}")
+                    if len(head_matches) >= 5:
+                        result["details"].append("  - HEAD一致行は一部のみ表示しています")
                     
                     # script タグでの検索
                     script_tags = head_element.find_elements(By.TAG_NAME, "script")
@@ -130,6 +183,12 @@ def check_tag_presence(url, search_text):
                 if search_text in body_html:
                     result["in_body"] = True
                     result["details"].append("✅ BODYタグ内に検索テキストが存在します")
+                body_matches = find_line_matches(body_html, search_text)
+                if body_matches:
+                    for line_no, line_text in body_matches:
+                        result["details"].append(f"  - BODY一致行 {line_no}: {line_text}")
+                    if len(body_matches) >= 5:
+                        result["details"].append("  - BODY一致行は一部のみ表示しています")
                     
                     # body内のscriptタグでの検索
                     script_tags = body_element.find_elements(By.TAG_NAME, "script")
@@ -151,6 +210,26 @@ def check_tag_presence(url, search_text):
             page_source = driver.page_source
             if search_text in page_source:
                 result["in_html"] = True
+                result["line_numbers"] = find_line_numbers(page_source, search_text)
+                if result["line_numbers"]:
+                    joined_lines = ", ".join(map(str, result["line_numbers"]))
+                    result["details"].append(f"一致行番号: {joined_lines}")
+                else:
+                    html_matches = find_line_matches(page_source, search_text)
+                    if html_matches:
+                        for line_no, line_text in html_matches:
+                            result["details"].append(f"  - HTML一致行 {line_no}: {line_text}")
+
+            # view-source相当のHTMLでも行番号を取得（ブラウザ表示の行に近づける）
+            view_source_html = fetch_view_source(url)
+            if view_source_html:
+                if search_text in view_source_html:
+                    result["line_numbers_view_source"] = find_line_numbers(view_source_html, search_text)
+                    if result["line_numbers_view_source"]:
+                        joined_lines = ", ".join(map(str, result["line_numbers_view_source"]))
+                        result["details"].append(f"view-source一致行番号: {joined_lines}")
+            else:
+                result["details"].append("⚠️ view-source取得に失敗しました")
             
             # 総合判定
             if result["in_head"] or result["in_body"]:
@@ -207,7 +286,9 @@ def main():
         "URL": [r["url"] for r in results],
         "Status": [r["status"] for r in results],
         "HEAD内": ["あり" if r["in_head"] else "なし" for r in results],
-        "BODY内": ["あり" if r["in_body"] else "なし" for r in results]
+        "BODY内": ["あり" if r["in_body"] else "なし" for r in results],
+        "一致行番号": [", ".join(map(str, r["line_numbers"])) if r["line_numbers"] else "" for r in results],
+        "一致行番号(view-source)": [", ".join(map(str, r["line_numbers_view_source"])) if r["line_numbers_view_source"] else "" for r in results]
     })
     
     # 詳細情報DataFrameも作成
