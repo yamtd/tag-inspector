@@ -20,10 +20,8 @@
 
 ## 必要条件
 - Python 3.x
-- Chrome ブラウザ
-- ChromeDriver
 - 必要なPythonパッケージ:
-  - selenium
+  - playwright
   - pandas
 
 ## 環境構築手順
@@ -53,13 +51,11 @@ pip install -r requirements.txt
 ```
 
 
-### 4. ChromeDriverのセットアップ
-1. お使いのChromeのバージョンを確認
-   - Chromeを開き、メニュー → ヘルプ → Google Chromeについて
-2. [ChromeDriverのダウンロードページ](https://chromedriver.chromium.org/downloads)から対応するバージョンをダウンロード
-  - 最新版ChromeDriverは[Chrome for Testing availability](https://googlechromelabs.github.io/chrome-for-testing/)からダウンロード
-3. ダウンロードしたファイルを設置 例：`C:/chromedriver.exe`（Windowsの場合）
-   - Mac/Linuxの場合は適切なパスに配置し、コード内のパスを修正
+### 4. Playwrightのブラウザ取得
+以下を初回だけ実行してください（Chromiumを自動取得します）。
+```bash
+python -m playwright install chromium
+```
 
 ## 使用方法
 1. `urls.csv`ファイルを作成し、チェックしたいURLを記載
@@ -110,7 +106,7 @@ pip install -r requirements.txt
 - ⚠️ エラー: その他のエラーが発生
 
 ## 注意事項
-- ChromeDriverのバージョンは使用しているChromeブラウザのバージョンと一致している必要があります
+- 初回のみ `python -m playwright install chromium` が必要です
 - ネットワーク接続が必要です
 - 大量のURLをチェックする場合は、適切な待機時間を設定してください
 
